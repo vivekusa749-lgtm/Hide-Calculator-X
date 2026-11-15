@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef5ff">
+<title>Calculator</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#eef5ff;--card:#fff;--border:#cfe2fb;--navy:#0d2240;--muted:#5d7090;--num:#eef6ff;--op:#d3e6fd;--blue:#1a73e8;--shadow:0 6px 18px rgba(26,115,232,.12);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--navy);user-select:none;-webkit-user-select:none}
+button{font-family:inherit}
+.hidden{display:none!important}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;padding:calc(var(--st) + 12px) 16px calc(var(--sb) + 12px);overflow:hidden}
+.screen.active{display:flex}
+/* Calculator */
+#calc{justify-content:flex-end;max-width:460px;margin:0 auto;width:100%;left:0;right:0}
+.display{background:var(--card);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow);padding:18px 20px;min-height:200px;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;text-align:right;margin-bottom:18px;overflow:hidden}
+.expr{font-size:22px;color:var(--muted);max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;direction:ltr;min-height:28px}
+.result{font-size:60px;font-weight:500;color:var(--navy);max-width:100%;overflow:hidden;white-space:nowrap;line-height:1.1;margin-top:6px}
+.result.small{font-size:42px}
+.result.tiny{font-size:30px}
+.result.error{color:#c62828}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 10px;justify-items:center}
+.key{width:min(84px,21vw);aspect-ratio:1;border:none;border-radius:50%;font:500 28px/1 Roboto,system-ui,sans-serif;color:var(--navy);background:var(--num);cursor:pointer;box-shadow:0 2px 6px rgba(26,115,232,.1);display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:transform .08s}
+.key:active{transform:scale(.94)}
+.key.op,.key.fn{background:var(--op);color:var(--blue)}
+.key.fn{font-size:24px}
+.key.fn i{font-size:22px;color:var(--blue)}
+.key.eq{background:var(--blue);color:#fff}
+.gap{width:min(84px,21vw);aspect-ratio:1}
+/* Gallery */
+.gal-head{display:flex;align-items:center;justify-content:space-between;padding:4px 0 12px}
+.gal-head h1{font-size:22px;margin:0;font-weight:500;flex:1;margin-left:6px}
+.icon-btn{width:44px;height:44px;border:none;border-radius:50%;background:transparent;color:var(--blue);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none}
+.icon-btn:active{background:var(--num)}
+.grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;padding:4px 2px 96px;align-content:start}
+.thumb{aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--num);border:1px solid var(--border);cursor:pointer;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);text-align:center;gap:8px;padding:20px}
+.empty i{font-size:52px;color:#a9c8f5;margin-bottom:6px}
+.fab{position:absolute;right:20px;bottom:calc(var(--sb) + 20px);width:60px;height:60px;border-radius:50%;background:var(--blue);color:#fff;border:none;box-shadow:0 8px 20px rgba(26,115,232,.35);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+/* Overlays */
+.overlay{position:fixed;inset:0;background:rgba(13,34,64,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.overlay.open{display:flex}
+.sheet{background:#fff;border-radius:22px;padding:22px;width:100%;max-width:380px;max-height:90dvh;overflow-y:auto;box-shadow:var(--shadow);user-select:text;-webkit-user-select:text}
+.sheet h2{margin:0 0 6px;font-size:20px;font-weight:500}
+.hint{margin:0 0 12px;color:var(--muted);font-size:14px;line-height:1.4}
+.sheet label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.sheet input:not([type=radio]),.sheet select{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font:16px Roboto,system-ui,sans-serif;color:var(--navy);background:#fbfdff;outline:none}
+.sheet input:focus,.sheet select:focus{border-color:var(--blue)}
+.choice{display:flex;gap:8px;margin-top:6px}
+.choice label{flex:1;margin:0;display:flex;align-items:center;gap:6px;padding:10px;border:1px solid var(--border);border-radius:12px;color:var(--navy);cursor:pointer;font-size:14px}
+.list-btn{width:100%;text-align:left;padding:16px;border:1px solid var(--border);background:#fff;border-radius:14px;margin-top:10px;font:500 16px Roboto,system-ui,sans-serif;color:var(--navy);cursor:pointer;display:flex;align-items:center;gap:12px}
+.list-btn i{color:var(--blue);width:20px;text-align:center}
+.row{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.btn{border:none;border-radius:24px;padding:11px 18px;font:500 15px Roboto,system-ui,sans-serif;cursor:pointer}
+.btn.pri{background:var(--blue);color:#fff}
+.btn.sec{background:transparent;color:var(--blue)}
+.msg{min-height:20px;font-size:14px;color:#c62828;margin-top:10px}
+.msg.ok{color:#2e7d32}
+/* Viewer */
+.viewer{position:fixed;inset:0;background:#0b1626;display:none;flex-direction:column;z-index:40;padding:var(--st) 0 var(--sb)}
+.viewer.open{display:flex}
+.viewer-bar{display:flex;align-items:center;padding:8px 12px;color:#fff;gap:4px}
+.viewer-bar .icon-btn{color:#fff}
+.viewer-body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:8px}
+.viewer-body img{max-width:100%;max-height:100%;object-fit:contain}
+/* Toast */
+.toast{position:fixed;left:50%;bottom:calc(var(--sb) + 24px);transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:90;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- CALCULATOR -->
+<section id="calc" class="screen active" aria-label="Calculator">
+  <div class="display" id="display">
+    <div class="expr" id="expr"></div>
+    <div class="result" id="result">0</div>
+  </div>
+  <div class="pad" id="pad">
+    <button class="key fn" data-k="C">C</button>
+    <button class="key fn" data-k="BS" aria-label="Backspace"><i class="fa-solid fa-delete-left"></i></button>
+    <button class="key fn" data-k="%">%</button>
+    <button class="key op" data-k="/">÷</button>
+    <button class="key" data-k="7">7</button>
+    <button class="key" data-k="8">8</button>
+    <button class="key" data-k="9">9</button>
+    <button class="key op" data-k="*">×</button>
+    <button class="key" data-k="4">4</button>
+    <button class="key" data-k="5">5</button>
+    <button class="key" data-k="6">6</button>
+    <button class="key op" data-k="-">−</button>
+    <button class="key" data-k="1">1</button>
+    <button class="key" data-k="2">2</button>
+    <button class="key" data-k="3">3</button>
+    <button class="key op" data-k="+">+</button>
+    <button class="key" data-k="0">0</button>
+    <button class="key" data-k=".">.</button>
+    <div class="gap" aria-hidden="true"></div>
+    <button class="key eq" data-k="=">=</button>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section id="gallery" class="screen" aria-label="Private gallery">
+  <div class="gal-head">
+    <button class="icon-btn" id="galBack" aria-label="Back to calculator"><i class="fa-solid fa-arrow-left"></i></button>
+    <h1>Private Gallery</h1>
+    <button class="icon-btn" id="openSettings" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty hidden">
+    <i class="fa-regular fa-images"></i>
+    <div>No images yet</div>
+    <div style="font-size:13px">Tap + to import photos</div>
+  </div>
+  <button class="fab" id="addBtn" aria-label="Import images"><i class="fa-solid fa-plus"></i></button>
+  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+</section>
+
+<!-- IMAGE VIEWER -->
+<div class="viewer" id="viewer" role="dialog" aria-label="Image viewer">
+  <div class="viewer-bar">
+    <button class="icon-btn" id="viewBack" aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>
+    <span style="font-size:16px">Back</span>
+  </div>
+  <div class="viewer-body"><img id="viewImg" alt=""></div>
+</div>
+
+<!-- SETUP (first run, cannot be dismissed) -->
+<div class="overlay" id="setupOv" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+  <form class="sheet" id="setupForm" autocomplete="off">
+    <h2 id="setupTitle">Set up secret code</h2>
+    <p class="hint">Enter this code on the calculator and press = to open your private gallery. Keep your recovery details safe.</p>
+    <label for="sCode">Secret code (4–12 digits)</label>
+    <input id="sCode" type="password" inputmode="numeric" maxlength="12" required>
+    <label for="sCode2">Confirm secret code</label>
+    <input id="sCode2" type="password" inputmode="numeric" maxlength="12" required>
+    <label for="sQ">Security question</label>
+    <select id="sQ">
+      <option>What was the name of your first pet?</option>
+      <option>In which city were you born?</option>
+      <option>What is your mother's maiden name?</option>
+      <option>What was the name of your first school?</option>
+    </select>
+    <label for="sAns">Answer</label>
+    <input id="sAns" type="text" required>
+    <label for="sPin">Recovery PIN (4–8 digits)</label>
+    <input id="sPin" type="password" inputmode="numeric" maxlength="8" required>
+    <div class="msg" id="setupMsg"></div>
+    <div class="row"><button class="btn pri" type="submit">Save</button></div>
+  </form>
+</div>
+
+<!-- SETTINGS -->
+<div class="overlay" id="settingsOv" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="sheet">
+    <h2 id="settingsTitle">Settings</h2>
+    <button class="list-btn" id="setChange"><i class="fa-solid fa-lock"></i>Change Password</button>
+    <button class="list-btn" id="setForgot"><i class="fa-solid fa-rotate-left"></i>Forgot Password</button>
+    <div class="row"><button class="btn sec" data-close="settingsOv">Close</button></div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD -->
+<div class="overlay" id="changeOv" role="dialog" aria-modal="true" aria-labelledby="changeTitle">
+  <form class="sheet" id="changeForm" autocomplete="off">
+    <h2 id="changeTitle">Change Password</h2>
+    <div class="choice">
+      <label><input type="radio" name="cMethod" value="pwd" checked> Current code</label>
+      <label><input type="radio" name="cMethod" value="pin"> Recovery PIN</label>
+    </div>
+    <label id="cLbl" for="cVerify">Current secret code</label>
+    <input id="cVerify" type="password" inputmode="numeric" required>
+    <label for="cNew">New secret code (4–12 digits)</label>
+    <input id="cNew" type="password" inputmode="numeric" maxlength="12" required>
+    <label for="cNew2">Confirm new secret code</label>
+    <input id="cNew2" type="password" inputmode="numeric" maxlength="12" required>
+    <div class="msg" id="changeMsg"></div>
+    <div class="row">
+      <button type="button" class="btn sec" data-close="changeOv">Cancel</button>
+      <button class="btn pri" type="submit">Update</button>
+    </div>
+  </form>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div class="overlay" id="forgotOv" role="dialog" aria-modal="true" aria-labelledby="forgotTitle">
+  <form class="sheet" id="forgotForm" autocomplete="off">
+    <h2 id="forgotTitle">Forgot Password</h2>
+    <div class="choice">
+      <label><input type="radio" name="fMethod" value="q" checked> Security question</label>
+      <label><input type="radio" name="fMethod" value="pin"> Recovery PIN</label>
+    </div>
+    <p class="hint" id="qText" style="margin-top:12px"></p>
+    <label id="fLbl" for="fVerify">Answer</label>
+    <input id="fVerify" type="text" required>
+    <label for="fNew">New secret code (4–12 digits)</label>
+    <input id="fNew" type="password" inputmode="numeric" maxlength="12" required>
+    <label for="fNew2">Confirm new secret code</label>
+    <input id="fNew2" type="password" inputmode="numeric" maxlength="12" required>
+    <div class="msg" id="forgotMsg"></div>
+    <div class="row">
+      <button type="button" class="btn sec" data-close="forgotOv">Cancel</button>
+      <button class="btn pri" type="submit">Reset</button>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const CFG_KEY = 'hidecalc.settings.v1';
+const ITER = 150000;
+const SECRET_RE = /^\d{4,12}$/;
+const PIN_RE = /^\d{4,8}$/;
+const OPSYM = {'+':'+', '-':'−', '*':'×', '/':'÷'};
+
+let cfg = loadCfg();
+let expr = '', fresh = false, errorState = false, errMsg = '', busy = false, urls = [];
+
+/* ---------- Settings storage (LocalStorage, small values only) ---------- */
+function loadCfg(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CFG_KEY));
+    return (c && c.pwd && c.qa && c.pin) ? c : null;
+  }catch(e){ return null; }
+}
+function saveCfg(c){
+  try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); return true; }
+  catch(e){ toast('Could not save settings on this device'); return false; }
+}
+
+/* ---------- Hashing (PBKDF2-SHA256 via Web Crypto, random salt) ---------- */
+function b64(buf){
+  let s = ''; const u = new Uint8Array(buf);
+  for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+  return btoa(s);
+}
+function unb64(s){ return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+async function derive(text, saltB64, iter){
+  if (!window.crypto || !crypto.subtle) throw new Error('Web Crypto unavailable');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(text), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({name:'PBKDF2', salt: unb64(saltB64), iterations: iter, hash:'SHA-256'}, key, 256);
+  return b64(bits);
+}
+async function makeRecord(text){
+  const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
+  return {s: salt, i: ITER, h: await derive(text, salt, ITER)};
+}
+async function checkRecord(text, rec){
+  if (!rec) return false;
+  return (await derive(text, rec.s, rec.i)) === rec.h;
+}
+const normAns = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/* ---------- Calculator ---------- */
+function tokenize(s){
+  const t = [], re = /\d+\.?\d*|\.\d+|[+\-*\/%]/g;
+  let m, pos = 0;
+  while ((m = re.exec(s))){
+    if (m.index !== pos) throw new Error('syntax');
+    t.push(m[0]); pos = re.lastIndex;
+  }
+  if (pos !== s.length) throw new Error('syntax');
+  return t;
+}
+// Safe recursive-descent evaluator (no eval). Returns null for empty input.
+function evaluate(src){
+  const s = src.replace(/[+\-*\/]+$/, '');
+  if (!s) return null;
+  const t = tokenize(s);
+  let i = 0;
+  const peek = () => t[i], next = () => t[i++];
+  function num(){
+    const tk = next();
+    if (tk === undefined || !/^[\d.]/.test(tk)) throw new Error('syntax');
+    let v = parseFloat(tk);
+    while (peek() === '%'){ next(); v /= 100; }
+    return v;
+  }
+  function unary(){
+    if (peek() === '-'){ next(); return -unary(); }
+    return num();
+  }
+  function term(){
+    let v = unary();
+    while (peek() === '*' || peek() === '/'){
+      const op = next(), r = unary();
+      if (op === '/'){ if (r === 0) throw new Error('div0'); v /= r; }
+      else v *= r;
+    }
+    return v;
+  }
+  function expression(){
+    let v = term();
+    while (peek() === '+' || peek() === '-'){
+      const op = next(), r = term();
+      v = op === '+' ? v + r : v - r;
+    }
+    return v;
+  }
+  const v = expression();
+  if (i !== t.length) throw new Error('syntax');
+  if (!Number.isFinite(v)) throw new Error('overflow');
+  return Number(v.toPrecision(12));
+}
+
+function render(){
+  $('#expr').textContent = expr.replace(/[+\-*\/]/g, c => OPSYM[c]);
+  let text, cls = 'result';
+  if (errorState){
+    text = errMsg; cls += ' error tiny';
+  } else {
+    let prev = null;
+    if (expr){ try{ prev = evaluate(expr); }catch(e){ prev = null; } }
+    text = prev !== null ? String(prev) : ((expr.split(/[+\-*\/%]/).pop()) || '0');
+    if (text.length > 13) cls += ' tiny';
+    else if (text.length > 9) cls += ' small';
+  }
+  const r = $('#result');
+  r.textContent = text;
+  r.className = cls;
+}
+
+function press(k){
+  if (errorState){ expr = ''; errorState = false; fresh = false; }
+  if (k === 'C'){ expr = ''; fresh = false; return render(); }
+  if (k === 'BS'){ expr = fresh ? '' : expr.slice(0, -1); fresh = false; return render(); }
+  if (k === '=') return equals();
+  if (k === '%'){
+    if (expr && !/[+\-*\/]$/.test(expr)) expr += '%';
+    fresh = false; return render();
+  }
+  if (/^\d$/.test(k) || k === '.'){
+    if (fresh){ expr = ''; fresh = false; }
+    if (expr.endsWith('%')) expr += '*';
+    if (k === '.'){
+      const seg = expr.split(/[+\-*\/]/).pop();
+      if (seg.includes('.')) return render();
+      if (seg === '') expr += '0';
+    }
+    expr += k;
+    return render();
+  }
+  if ('+-*/'.includes(k)){
+    fresh = false;
+    if (!expr){ if (k === '-') expr = '-'; return render(); }
+    if (expr === '-') return render();
+    if (/[+\-*\/]$/.test(expr)) expr = expr.slice(0, -1) + k;
+    else expr += k;
+    return render();
+  }
+}
+
+async function equals(){
+  if (busy) return;
+  if (!expr) return render();
+  // Secret code check: only when the entire input is digits and a code is configured.
+  if (cfg && SECRET_RE.test(expr)){
+    busy = true;
+    let ok = false;
+    try{ ok = await checkRecord(expr, cfg.pwd); }
+    catch(e){ toast('Security check unavailable'); }
+    busy = false;
+    if (ok){
+      expr = ''; fresh = false; render();
+      return openGallery();
+    }
+  }
+  let v;
+  try{ v = evaluate(expr); }
+  catch(e){
+    errorState = true;
+    errMsg = e.message === 'div0' ? 'Cannot divide by zero' : 'Invalid expression';
+    return render();
+  }
+  if (v === null) return render();
+  expr = String(v); fresh = true;
+  render();
+}
+
+$('#pad').addEventListener('click', e => {
+  const b = e.target.closest('[data-k]');
+  if (b) press(b.dataset.k);
+});
+
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.overlay.open') || !$('#calc').classList.contains('active')) return;
+  const map = {Enter:'=', '=':'=', Backspace:'BS', Escape:'C', Delete:'C', '*':'*', '+':'+', '-':'-', '/':'/', '%':'%', '.':'.'};
+  const k = map[e.key] !== undefined ? map[e.key] : (/^\d$/.test(e.key) ? e.key : null);
+  if (k !== null){ e.preventDefault(); press(k); }
+});
+
+// Hidden recovery path: press and hold the display for 2 seconds (no visible control).
+let holdTimer = null;
+const disp = $('#display');
+disp.addEventListener('pointerdown', () => {
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { if (cfg) openForgot(); }, 2000);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+  disp.addEventListener(ev, () => clearTimeout(holdTimer)));
+
+/* ---------- Screens & overlays ---------- */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+}
+function openOv(id){
+  const o = document.getElementById(id);
+  o.classList.add('open');
+  const f = o.querySelector('input:not([type=radio]),select');
+  if (f) f.focus();
+}
+function closeOv(id){
+  const o = document.getElementById(id);
+  o.classList.remove('open');
+  o.querySelectorAll('input:not([type=radio])').forEach(i => i.value = '');
+  o.querySelectorAll('.msg').forEach(m => { m.textContent = ''; m.className = 'msg'; });
+}
+function setMsg(el, text, ok){ el.textContent = text; el.className = 'msg' + (ok ? ' ok' : ''); }
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeOv(b.dataset.close)));
+
+let toastTimer;
+function toast(t){
+  const el = $('#toast');
+  el.textContent = t;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* ---------- Setup ---------- */
+$('#setupForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#setupMsg');
+  const code = $('#sCode').value, code2 = $('#sCode2').value;
+  const q = $('#sQ').value, ans = normAns($('#sAns').value), pin = $('#sPin').value.trim();
+  if (!SECRET_RE.test(code)) return setMsg(msg, 'Secret code must be 4–12 digits.');
+  if (code !== code2) return setMsg(msg, 'Secret codes do not match.');
+  if (!ans) return setMsg(msg, 'Enter an answer to the security question.');
+  if (!PIN_RE.test(pin)) return setMsg(msg, 'Recovery PIN must be 4–8 digits.');
+  try{
+    const next = {v: 1, pwd: await makeRecord(code), q, qa: await makeRecord(ans), pin: await makeRecord(pin)};
+    if (saveCfg(next)){
+      cfg = next;
+      closeOv('setupOv');
+      toast('Secret code saved');
+    }
+  }catch(err){
+    setMsg(msg, 'Security setup failed: ' + err.message);
+  }
+});
+
+/* ---------- Settings ---------- */
+$('#openSettings').addEventListener('click', () => openOv('settingsOv'));
+$('#setChange').addEventListener('click', () => { closeOv('settingsOv'); openChange(); });
+$('#setForgot').addEventListener('click', () => { closeOv('settingsOv'); openForgot(); });
+
+function updateChangeUI(){
+  const pin = document.querySelector('input[name=cMethod]:checked').value === 'pin';
+  $('#cLbl').textContent = pin ? 'Recovery PIN' : 'Current secret code';
+  $('#cVerify').type = 'password';
+}
+function openChange(){
+  if (!cfg) return;
+  document.querySelector('input[name=cMethod][value=pwd]').checked = true;
+  updateChangeUI();
+  openOv('changeOv');
+}
+document.querySelectorAll('input[name=cMethod]').forEach(r => r.addEventListener('change', updateChangeUI));
+
+$('#changeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#changeMsg');
+  const pin = document.querySelector('input[name=cMethod]:checked').value === 'pin';
+  const cur = pin ? $('#cVerify').value.trim() : $('#cVerify').value;
+  const np = $('#cNew').value, np2 = $('#cNew2').value;
+  if (!cur) return setMsg(msg, pin ? 'Enter your Recovery PIN.' : 'Enter your current secret code.');
+  if (!SECRET_RE.test(np)) return setMsg(msg, 'New secret code must be 4–12 digits.');
+  if (np !== np2) return setMsg(msg, 'New secret codes do not match.');
+  let ok = false;
+  try{ ok = await checkRecord(cur, pin ? cfg.pin : cfg.pwd); }
+  catch(err){ return setMsg(msg, 'Security check failed.'); }
+  if (!ok) return setMsg(msg, pin ? 'Incorrect Recovery PIN.' : 'Incorrect current secret code.');
+  try{
+    const next = {...cfg, pwd: await makeRecord(np)};
+    if (saveCfg(next)){
+      cfg = next;
+      closeOv('changeOv');
+      toast('Secret code updated');
+    }
+  }catch(err){
+    setMsg(msg, 'Could not update the secret code.');
+  }
+});
+
+/* ---------- Forgot password (recovery) ---------- */
+function updateForgotUI(){
+  const pin = document.querySelector('input[name=fMethod]:checked').value === 'pin';
+  $('#qText').classList.toggle('hidden', pin);
+  $('#qText').textContent = cfg ? cfg.q : '';
+  $('#fLbl').textContent = pin ? 'Recovery PIN' : 'Answer';
+  $('#fVerify').type = pin ? 'password' : 'text';
+  $('#fVerify').inputMode = pin ? 'numeric' : 'text';
+}
+function openForgot(){
+  if (!cfg) return;
+  document.querySelector('input[name=fMethod][value=q]').checked = true;
+  updateForgotUI();
+  openOv('forgotOv');
+}
+document.querySelectorAll('input[name=fMethod]').forEach(r => r.addEventListener('change', updateForgotUI));
+
+$('#forgotForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const msg = $('#forgotMsg');
+  const pin = document.querySelector('input[name=fMethod]:checked').value === 'pin';
+  const val = pin ? $('#fVerify').value.trim() : normAns($('#fVerify').value);
+  const np = $('#fNew').value, np2 = $('#fNew2').value;
+  if (!val) return setMsg(msg, pin ? 'Enter your Recovery PIN.' : 'Enter your answer.');
+  if (!SECRET_RE.test(np)) return setMsg(msg, 'New secret code must be 4–12 digits.');
+  if (np !== np2) return setMsg(msg, 'New secret codes do not match.');
+  let ok = false;
+  try{ ok = await checkRecord(val, pin ? cfg.pin : cfg.qa); }
+  catch(err){ return setMsg(msg, 'Security check failed.'); }
+  if (!ok) return setMsg(msg, 'Recovery information is incorrect. Your secret code was not changed.');
+  try{
+    const next = {...cfg, pwd: await makeRecord(np)};
+    if (saveCfg(next)){
+      cfg = next;
+      closeOv('forgotOv');
+      toast('Secret code reset. Your images were not changed.');
+    }
+  }catch(err){
+    setMsg(msg, 'Could not reset the secret code.');
+  }
+});
+
+/* ---------- IndexedDB image storage ---------- */
+let dbp = null;
+function openDB(){
+  if (!dbp) dbp = new Promise((resolve, reject) => {
+    if (!window.indexedDB){ reject(new Error('IndexedDB is not supported here')); return; }
+    const r = indexedDB.open('hidecalc', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('images', {keyPath: 'id'});
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => { dbp = null; reject(r.error); };
+    r.onblocked = () => { dbp = null; reject(new Error('Storage is blocked')); };
+  });
+  return dbp;
+}
+// Resolves only when the transaction completes; rejects on error or abort.
+function store(mode, work){
+  return openDB().then(d => new Promise((resolve, reject) => {
+    const t = d.transaction('images', mode);
+    const os = t.objectStore('images');
+    let value;
+    const req = work(os);
+    if (req) req.onsuccess = () => { value = req.result; };
+    t.oncomplete = () => resolve(value);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error || new Error('Transaction aborted'));
+  }));
+}
+const newId = () => (window.crypto && crypto.randomUUID)
+  ? crypto.randomUUID()
+  : Date.now().toString(36) + Math.random().toString(36).slice(2);
+const saveImage = f => store('readwrite', os => os.put({
+  id: newId(), blob: f, name: f.name || 'image', type: f.type, size: f.size, added: Date.now()
+}));
+const listImages = () => store('readonly', os => os.getAll()).then(r => r || []);
+
+/* ---------- Gallery ---------- */
+function revokeUrls(){ urls.forEach(u => URL.revokeObjectURL(u)); urls = []; }
+
+async function refreshGallery(){
+  revokeUrls();
+  let items = [];
+  try{ items = await listImages(); }
+  catch(err){ toast('Could not read the gallery'); }
+  items.sort((a, b) => b.added - a.added);
+  const grid = $('#grid');
+  grid.innerHTML = '';
+  items.forEach(rec => {
+    const url = URL.createObjectURL(rec.blob);
+    urls.push(url);
+    const b = document.createElement('button');
+    b.className = 'thumb';
+    b.setAttribute('aria-label', rec.name);
+    const img = document.createElement('img');
+    img.src = url; img.alt = '';
+    b.appendChild(img);
+    b.addEventListener('click', () => openViewer(url, rec.name));
+    grid.appendChild(b);
+  });
+  $('#empty').classList.toggle('hidden', items.length > 0);
+  grid.classList.toggle('hidden', items.length === 0);
+}
+
+function openGallery(){ show('gallery'); refreshGallery(); }
+function leaveGallery(){
+  ['settingsOv', 'changeOv', 'forgotOv'].forEach(closeOv);
+  $('#viewer').classList.remove('open');
+  $('#viewImg').removeAttribute('src');
+  $('#grid').innerHTML = '';
+  revokeUrls();
+  show('calc');
+}
+$('#galBack').addEventListener('click', leaveGallery);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && $('#gallery').classList.contains('active')) leaveGallery();
+});
+
+$('#addBtn').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  let ok = 0, skipped = 0, failure = null;
+  for (const f of files){
+    if (!f.type.startsWith('image/') || f.size === 0){ skipped++; continue; }
+    try{ await saveImage(f); ok++; }
+    catch(err){ failure = err; break; }
+  }
+  await refreshGallery();
+  let msg = `Saved ${ok} image${ok === 1 ? '' : 's'}`;
+  if (skipped) msg += `; skipped ${skipped} invalid file${skipped === 1 ? '' : 's'}`;
+  if (failure){
+    msg = (failure.name === 'QuotaExceededError' ? 'Not enough storage space. ' : 'Save failed. ') + msg;
+  }
+  toast(msg);
+});
+
+function openViewer(url, name){
+  const img = $('#viewImg');
+  img.src = url;
+  img.alt = name || '';
+  $('#viewer').classList.add('open');
+}
+$('#viewBack').addEventListener('click', () => {
+  $('#viewer').classList.remove('open');
+  $('#viewImg').removeAttribute('src');
+});
+
+/* ---------- Start ---------- */
+render();
+if (!cfg) openOv('setupOv');
+</script>
+</body>
+</html>
